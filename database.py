@@ -15,8 +15,7 @@ data = data.sort_values('time')
 print(data)
 
 # Creating the database connection
-airdb = sqlite3.connect('air_database.db')
+bairdb = sqlite3.connect('air_database.db')
 
 # Write dataframes to the SQLite database
-data.to_sql('table1', airdb, if_exists='replace', index=False)
-print('here')
+data.to_sql('table1', bairdb, if_exists='replace', index=False)
