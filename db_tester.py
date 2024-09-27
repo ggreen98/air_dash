@@ -19,3 +19,4 @@ for row in results:
 # Close the cursor and database connection
 cursor.close()
 bairdb.close()
+print('test')
