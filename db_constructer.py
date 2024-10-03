@@ -27,7 +27,7 @@ for root, dirs, files in os.walk(data_path):
 
 print(paths_lst)
 print(len(paths_lst))
-
+print('test')
 #print(file_lst)
             #file_path = os.path.join(root, file)  # Create the full file path
 
