@@ -1,65 +1,40 @@
-import pandas as pd
-import os
-from pathlib import Path
+import pandas as pd  # Import pandas for data manipulation
+from pathlib import Path  # Import Path for working with file paths
 
-
+# List of species to search for in filenames
 species = ['voc', 'o3', 'pm', 'met', 'ch4', 'nox']
-species = ['voc']
-#sites = ['LUR', 'TFS', 'LNM']
-sites = ['LUR']
+
+# List of sites to search in (directories within the data path)
+# sites = ['LUR', 'TFS', 'LNM']
+sites = ['LUR', 'LNM', 'TFS']  # Limiting the search to 'LUR' and 'LNM'
+
+# The base directory where the CSV files are stored
 data_path = '/Users/gabegreenberg/Boulder_AIR/CSV_Structer_Clone/data'
-paths_lst = []
+
+# Initialize a dictionary to store the files grouped by site and species
 dir_dict = {}
-# for each site read in every standared (non diagnostic ect... CSV file)
+
+# Loop through each site (directory)
 for site in sites:
-    species_dict = {}
-    dir_dict[site] = species_dict
+    species_dict = {}  # Dictionary to store files for each species at this site
+    dir_dict[site] = species_dict  # Add this dictionary to the main dictionary
+    
+    # Loop through each species
     for ss in species:
-        file_lst = []
-        species_dict[ss] = []
+        file_lst = []  # Initialize an empty list to store the file paths for this species
+        
+        # Loop through all files in the directory (non-recursively)
         for file in Path(f'{data_path}/{site}').glob('*'):
+            # Check if both the site and species are in the filename
             if site in str(file) and ss in str(file):
-                file_lst.append(file)
+                file_lst.append(str(file))  # Convert the PosixPath to a string and append it to the list
+        
+        # Store the list of file paths in the species dictionary
+        species_dict[ss] = file_lst
+
+        print(len(file_lst))
+
 
 print(dir_dict)
+
             
-
-# for root, dirs, files in os.walk(data_path):
-#     site_dict = {}
-#     for site in sites:
-#         species_dict = {}  # Combine this outside the species loop
-#         for ss in species:s
-#             file_path_lst = []
-#             for file in files:
-#                 if file.endswith(".csv") and (site in file) and (ss in file):
-#                     file_path = os.path.join(root, file)
-#                     file_path_lst.append(file_path)
-#             if file_path_lst:  # Only add if the list is non-empty
-#                 species_dict[ss] = file_path_lst
-#         if species_dict:  # Only add if species_dict has entries
-#             if site_dict.get(site) is None:  # Avoid duplicates by checking
-#                 site_dict[site] = species_dict
-#                 paths_lst.append(site_dict)
-
-# print(paths_lst)
-# print(len(paths_lst))
-# print('test')
-#print(file_lst)
-            #file_path = os.path.join(root, file)  # Create the full file path
-
-
-    # for file in files:
-    #     if file.endswith(".csv"):
-    #         for site in sites:
-    #             for cat in categories:
-    #                 if (site in root) & (cat in root):
-    #                     print(root, file)
-
-
-    # for file in files:
-    #     if ".csv" in file:
-    #         for site in sites_list:
-    #             if site in file:
-    #                 for cat in catigory:
-    #                     if cat in file:
-    #                         print(file)
