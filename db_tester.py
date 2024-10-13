@@ -57,3 +57,4 @@ for table in expected_tables:
 # Close the connection
 conn.close()
 
+print('test we need to upgrade from sqllite to a more robust database like SQL')
