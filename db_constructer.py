@@ -1,7 +1,9 @@
 import pandas as pd  
 from pathlib import Path  
 import os
-import sqlite3
+#import sqlite3
+import mysql.connector
+import pandas as pd
 
 # List of species to search for in filenames
 species_cat = ['voc', 'o3', 'pm', 'met', 'ch4', 'nox']
@@ -155,70 +157,141 @@ class DataProcessor:
             # Update the species files dictionary with the highest version files
             self.species_files_dict[cat] = correct_files_lst
             return self.species_files_dict
-
+    
     def db_data_readin_and_load(self):
-         if not hasattr(self, 'species_files_dict') or not self.species_files_dict:
-            raise ValueError("You need to run `get_files` before calling `get_version_num`.")
+        if not hasattr(self, 'species_files_dict') or not self.species_files_dict:
+            raise ValueError("You need to run `get_files` before calling `db_data_readin_and_load`.")
+
+        # Open a database connection
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='',
+            database='airbase'  # Add your database name here
+        )
+        
+        cursor = connection.cursor()
+
+        for cat in self.species_files_dict:
+                for fname in self.species_files_dict[cat]:
+                    df = pd.read_csv(rf'{self.data_path}/{self.site}/{fname}', header=1)
+
+                    # Ensure 'time' column is in datetime format
+                    df['time'] = pd.to_datetime(df['time'], unit='s')
+
+                    # Ensure that the site exists in the database
+                    cursor.execute('SELECT site_id FROM sites WHERE site_name = %s', (self.site,))
+                    site_id = cursor.fetchone()
+                    if not site_id:
+                        cursor.execute('INSERT INTO sites (site_name) VALUES (%s)', (self.site,))
+                        site_id = cursor.lastrowid
+                    else:
+                        site_id = site_id[0]
+
+                    # Loop through each species column (excluding the 'time' column)
+                    for column in df.columns:
+                        if column == 'time':
+                            continue  # Skip the time column
+
+                        # Ensure that the species exists in the database
+                        cursor.execute('SELECT species_id FROM species WHERE species_name = %s', (column,))
+                        species_id = cursor.fetchone()
+                        if not species_id:
+                            cursor.execute('INSERT INTO species (species_name) VALUES (%s)', (column,))
+                            species_id = cursor.lastrowid
+                        else:
+                            species_id = species_id[0]
+
+                        # Prepare batch insertions
+                        data_to_insert = []
+                        
+                        # Insert each row's data into the 'data' table
+                        for index, row in df.iterrows():
+                            # Get the value for the current column using bracket notation
+                            value = row[column]  # Access the value using the column name
+
+                            # Only insert if the value is not NaN
+                            if not pd.isna(value):
+                                datetime_str = row['time'].strftime('%Y-%m-%d %H:%M:%S')
+                                data_to_insert.append((site_id, species_id, datetime_str, value))
+
+                        # Batch insert data into the 'data' table using executemany()
+                        if data_to_insert:  # Only execute if there's data to insert
+                            cursor.executemany('''
+                                INSERT INTO data (site_id, species_id, datetime, value)
+                                VALUES (%s, %s, %s, %s)
+                            ''', data_to_insert)
+
+        connection.commit()
+        connection.close()
+
+
+    # def db_data_readin_and_load(self):
+    #      if not hasattr(self, 'species_files_dict') or not self.species_files_dict:
+    #         raise ValueError("You need to run `get_files` before calling `get_version_num`.")
          
-         # Open a database connection
-         db_path = 'air_database.db'
-         conn = sqlite3.connect(db_path)
-         cursor = conn.cursor()
+    #      # Open a database connection
+    #      db_path = 'air_database.db'
+    #      conn = sqlite3.connect(db_path)
+    #      cursor = conn.cursor()
 
 
-         for cat in self.species_files_dict:
-            for fname in self.species_files_dict[cat]:
-                df = pd.read_csv(rf'{self.data_path}/{self.site}/{fname}', header=1)
-                df['time'] = pd.to_datetime(df['time'], unit='s')
+    #      for cat in self.species_files_dict:
+    #         for fname in self.species_files_dict[cat]:
+    #             df = pd.read_csv(rf'{self.data_path}/{self.site}/{fname}', header=1)
+    #             df['time'] = pd.to_datetime(df['time'], unit='s')
 
-               # Ensure that the site and species exist in the database
-                cursor.execute('SELECT site_id FROM sites WHERE site_name = ?', (self.site,))
-                site_id = cursor.fetchone()
-                if not site_id:
-                    cursor.execute('INSERT INTO sites (site_name) VALUES (?)', (self.site,))
-                    site_id = cursor.lastrowid
-                else:
-                    site_id = site_id[0]
-                  # Loop through each species column (excluding the 'time' column)
-            for column in df.columns:
-                if column == 'time':
-                    continue  # Skip the time column
+    #            # Ensure that the site and species exist in the database
+    #             cursor.execute('SELECT site_id FROM sites WHERE site_name = ?', (self.site,))
+    #             site_id = cursor.fetchone()
+    #             if not site_id:
+    #                 cursor.execute('INSERT INTO sites (site_name) VALUES (?)', (self.site,))
+    #                 site_id = cursor.lastrowid
+    #             else:
+    #                 site_id = site_id[0]
+    #               # Loop through each species column (excluding the 'time' column)
+    #         for column in df.columns:
+    #             if column == 'time':
+    #                 continue  # Skip the time column
                 
-                # Ensure that the species exists in the database
-                cursor.execute('SELECT species_id FROM species WHERE species_name = ?', (column,))
-                species_id = cursor.fetchone()
-                if not species_id:
-                    cursor.execute('INSERT INTO species (species_name) VALUES (?)', (column,))
-                    species_id = cursor.lastrowid
-                else:
-                    species_id = species_id[0]
+    #             # Ensure that the species exists in the database
+    #             cursor.execute('SELECT species_id FROM species WHERE species_name = ?', (column,))
+    #             species_id = cursor.fetchone()
+    #             if not species_id:
+    #                 cursor.execute('INSERT INTO species (species_name) VALUES (?)', (column,))
+    #                 species_id = cursor.lastrowid
+    #             else:
+    #                 species_id = species_id[0]
 
-                # Prepare batch insertions
-                data_to_insert = []
+    #             # Prepare batch insertions
+    #             data_to_insert = []
 
-                # Insert each row's data into the 'data' table
-                  # Use itertuples() to iterate over the DataFrame
-                for row in df.itertuples(index=False):
-                    # Convert 'time' to string format for SQLite
-                    datetime_str = getattr(row, 'time').strftime('%Y-%m-%d %H:%M:%S')
-                    value = row[df.columns.get_loc(column)]
-                    data_to_insert.append((site_id, species_id, datetime_str, value))
+    #             # Insert each row's data into the 'data' table
+    #               # Use itertuples() to iterate over the DataFrame
+    #             for row in df.itertuples(index=False):
+    #                 # Convert 'time' to string format for SQLite
+    #                 datetime_str = getattr(row, 'time').strftime('%Y-%m-%d %H:%M:%S')
+    #                 value = row[df.columns.get_loc(column)]
+    #                 data_to_insert.append((site_id, species_id, datetime_str, value))
 
-                # Batch insert data into the 'data' table using executemany()
-                cursor.executemany('''
-                    INSERT INTO data (site_id, species_id, datetime, value)
-                    VALUES (?, ?, ?, ?)
-                ''', data_to_insert)
+    #             # Batch insert data into the 'data' table using executemany()
+    #             cursor.executemany('''
+    #                 INSERT INTO data (site_id, species_id, datetime, value)
+    #                 VALUES (?, ?, ?, ?)
+    #             ''', data_to_insert)
 
-         conn.commit()
-         conn.close()
+    #      conn.commit()
+    #      conn.close()
 
     
     # def prep_data_for_db(self):
 
 test = DataProcessor(data_path, ['voc', 'pm'], 'LUR')
 test.get_files()
+print(test.species_files_dict)
 test.db_data_readin_and_load()
+#print('here')
+#test.db_data_readin_and_load()
     
     
     # def get_version_num(self):
